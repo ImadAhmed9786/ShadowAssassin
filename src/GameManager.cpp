@@ -27,6 +27,13 @@ GameManager::GameManager(int width, int height, const std::string& title)
       m_debugMode(false),
       m_isFullscreen(true),
       m_renderTarget{},
+      m_mobileMode(false),
+      m_joystickCenter{ 130.0f, 620.0f },
+      m_joystickKnob{ 130.0f, 620.0f },
+      m_joystickActive(false),
+      m_strikeBtnCenter{ 890.0f, 620.0f },
+      m_strikeBtnRadius(48.0f),
+      m_strikePressed(false),
       m_checkpointCoins(0),
       m_checkpointEliminations(0),
       m_currentLevelIndex(1) {
@@ -34,6 +41,37 @@ GameManager::GameManager(int width, int height, const std::string& title)
 
 GameManager::~GameManager() {
     shutdown();
+}
+
+void GameManager::toggleMobileMode() {
+    m_mobileMode = !m_mobileMode;
+    if (m_uiManager) {
+        m_uiManager->addNotification(
+            m_mobileMode ? "DEVICE: MOBILE (TOUCH JOYSTICK ON)" : "DEVICE: PC (KEYBOARD WASD)",
+            Vector2{ m_screenWidth / 2.0f, 60.0f },
+            m_mobileMode ? Color{ 0, 220, 255, 255 } : Color{ 220, 220, 220, 255 }
+        );
+    }
+}
+
+Vector2 GameManager::getVirtualMousePos() const {
+    float screenW = static_cast<float>(GetScreenWidth());
+    float screenH = static_cast<float>(GetScreenHeight());
+    float scale = std::min(screenW / static_cast<float>(m_screenWidth),
+                           screenH / static_cast<float>(m_screenHeight));
+
+    Vector2 raw = GetMousePosition();
+    if (GetTouchPointCount() > 0) {
+        raw = GetTouchPosition(0);
+    }
+
+    Vector2 vPos = {
+        (raw.x - (screenW - (static_cast<float>(m_screenWidth) * scale)) * 0.5f) / scale,
+        (raw.y - (screenH - (static_cast<float>(m_screenHeight) * scale)) * 0.5f) / scale
+    };
+    vPos.x = std::clamp(vPos.x, 0.0f, static_cast<float>(m_screenWidth));
+    vPos.y = std::clamp(vPos.y, 0.0f, static_cast<float>(m_screenHeight));
+    return vPos;
 }
 
 void GameManager::loadLevel(int levelNumber) {
@@ -186,6 +224,11 @@ void GameManager::update(float deltaTime) {
         toggleFullscreen();
     }
 
+    // Global Device Mode Hotkey (T to Toggle Mobile / PC controls)
+    if (IsKeyPressed(KEY_T)) {
+        toggleMobileMode();
+    }
+
     // -------------------------------------------------------------
     // Global & State Keyboard Shortcuts
     // -------------------------------------------------------------
@@ -297,9 +340,66 @@ void GameManager::update(float deltaTime) {
 
     if (!m_currentLevel || !m_player) return;
 
-    // 1. Process Player Input & Obstacle Collision
+    // 1. Process Mobile / Touch Virtual Joystick & Attack Button
+    Vector2 virtualJoystickDir = { 0.0f, 0.0f };
+    bool strikeTriggered = false;
+
+    // Auto-enable mobile controls if screen is touched
+    if (GetTouchPointCount() > 0 && !m_mobileMode) {
+        m_mobileMode = true;
+    }
+
+    if (m_mobileMode) {
+        bool isPointerDown = IsMouseButtonDown(MOUSE_BUTTON_LEFT) || (GetTouchPointCount() > 0);
+        m_joystickActive = false;
+        m_strikePressed = false;
+
+        float screenW = static_cast<float>(GetScreenWidth());
+        float screenH = static_cast<float>(GetScreenHeight());
+        float scale = std::min(screenW / static_cast<float>(m_screenWidth),
+                               screenH / static_cast<float>(m_screenHeight));
+
+        int touchCount = std::max(1, GetTouchPointCount());
+        for (int i = 0; i < touchCount; ++i) {
+            Vector2 rawPt = (GetTouchPointCount() > 0) ? GetTouchPosition(i) : GetMousePosition();
+            Vector2 pt = {
+                (rawPt.x - (screenW - (static_cast<float>(m_screenWidth) * scale)) * 0.5f) / scale,
+                (rawPt.y - (screenH - (static_cast<float>(m_screenHeight) * scale)) * 0.5f) / scale
+            };
+
+            if (isPointerDown) {
+                // Check if touch / click is in virtual joystick zone
+                float distJoy = std::hypot(pt.x - m_joystickCenter.x, pt.y - m_joystickCenter.y);
+                if (distJoy <= 120.0f) {
+                    m_joystickActive = true;
+                    float clampedDist = std::min(distJoy, 45.0f);
+                    if (distJoy > 0.001f) {
+                        float nx = (pt.x - m_joystickCenter.x) / distJoy;
+                        float ny = (pt.y - m_joystickCenter.y) / distJoy;
+                        m_joystickKnob = Vector2{ m_joystickCenter.x + nx * clampedDist,
+                                                  m_joystickCenter.y + ny * clampedDist };
+                        virtualJoystickDir = Vector2{ nx * (clampedDist / 45.0f),
+                                                      ny * (clampedDist / 45.0f) };
+                    }
+                }
+
+                // Check if touch / click is in strike button zone
+                float distStrike = std::hypot(pt.x - m_strikeBtnCenter.x, pt.y - m_strikeBtnCenter.y);
+                if (distStrike <= m_strikeBtnRadius + 18.0f) {
+                    m_strikePressed = true;
+                    strikeTriggered = true;
+                }
+            }
+        }
+
+        if (!m_joystickActive) {
+            m_joystickKnob = m_joystickCenter;
+        }
+    }
+
+    // 2. Process Player Input & Obstacle Collision
     if (m_player->isAlive()) {
-        m_player->handleInput();
+        m_player->handleInput(virtualJoystickDir);
         m_player->moveAndSlide(
             deltaTime,
             m_currentLevel->getObstacles(),
@@ -307,7 +407,7 @@ void GameManager::update(float deltaTime) {
             m_currentLevel->getMapHeight()
         );
 
-        // 2. Check Collectible Overlaps
+        // 3. Check Collectible Overlaps
         for (auto& coin : m_currentLevel->getCoins()) {
             if (!coin.isCollected() && coin.checkCollision(m_player->getCenter(), m_player->getRadius())) {
                 coin.collect();
@@ -318,14 +418,14 @@ void GameManager::update(float deltaTime) {
             }
         }
 
-        // 3. Evaluate Assassination Vulnerability across living guards
+        // 4. Evaluate Assassination Vulnerability across living guards
         bool assassinationExecuted = false;
         for (auto& guard : m_currentLevel->getGuards()) {
             if (guard->isAlive()) {
                 bool canStrike = guard->isVulnerableTo(*m_player, 65.0f, 70.0f);
                 guard->setVulnerable(canStrike);
 
-                if (canStrike && IsKeyPressed(KEY_SPACE) && !assassinationExecuted) {
+                if (canStrike && (IsKeyPressed(KEY_SPACE) || strikeTriggered) && !assassinationExecuted) {
                     guard->eliminate();
                     m_player->addElimination();
                     m_player->triggerAssassinationEffect(guard->getCenter());
@@ -389,13 +489,15 @@ void GameManager::draw() {
     switch (m_currentState) {
         case GameState::MENU: {
             if (m_uiManager) {
-                UIAction action = m_uiManager->drawMainMenu(mousePos, mouseClicked, m_showControlsModal);
+                UIAction action = m_uiManager->drawMainMenu(mousePos, mouseClicked, m_showControlsModal, m_mobileMode);
                 if (action == UIAction::START_GAME) {
                     loadLevel(1);
                 } else if (action == UIAction::SHOW_CONTROLS) {
                     m_showControlsModal = true;
                 } else if (action == UIAction::HIDE_CONTROLS) {
                     m_showControlsModal = false;
+                } else if (action == UIAction::TOGGLE_DEVICE_MODE) {
+                    toggleMobileMode();
                 } else if (action == UIAction::EXIT_GAME) {
                     m_isRunning = false;
                 }
@@ -423,6 +525,26 @@ void GameManager::draw() {
                 m_uiManager->drawNotifications();
             }
 
+            // Draw Mobile Virtual Touch Controls if mobile mode is active
+            if (m_mobileMode && m_uiManager && m_currentLevel) {
+                bool anyVulnerable = false;
+                for (const auto& guard : m_currentLevel->getGuards()) {
+                    if (guard->isAlive() && guard->isVulnerable()) {
+                        anyVulnerable = true;
+                        break;
+                    }
+                }
+                m_uiManager->drawMobileControls(
+                    m_joystickCenter,
+                    m_joystickKnob,
+                    m_joystickActive,
+                    m_strikeBtnCenter,
+                    m_strikeBtnRadius,
+                    anyVulnerable,
+                    m_strikePressed
+                );
+            }
+
             // Draw In-Game HUD
             if (m_uiManager && m_currentLevel && m_player) {
                 m_uiManager->drawHUD(
@@ -435,7 +557,8 @@ void GameManager::draw() {
                     m_currentLevel->getRemainingGuardsCount(),
                     m_currentLevel->getTotalGuardsCount(),
                     m_player->getEliminations(),
-                    GetFPS()
+                    GetFPS(),
+                    m_mobileMode
                 );
             }
             break;

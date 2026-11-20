@@ -27,7 +27,8 @@ enum class UIAction {
     SHOW_CONTROLS,
     HIDE_CONTROLS,
     MAIN_MENU,
-    EXIT_GAME
+    EXIT_GAME,
+    TOGGLE_DEVICE_MODE
 };
 
 /**
@@ -66,11 +67,23 @@ public:
         int remainingGuards,
         int totalGuards,
         int eliminations,
-        int fps
+        int fps,
+        bool mobileMode = false
+    ) const;
+
+    // Mobile Virtual Touch Controls
+    void drawMobileControls(
+        Vector2 joystickCenter,
+        Vector2 knobPos,
+        bool joystickActive,
+        Vector2 strikeBtnCenter,
+        float strikeBtnRadius,
+        bool canStrike,
+        bool strikePressed
     ) const;
 
     // Menus and Modal Overlays (Return selected UIAction)
-    UIAction drawMainMenu(Vector2 mousePos, bool mouseClicked, bool showControlsModal) const;
+    UIAction drawMainMenu(Vector2 mousePos, bool mouseClicked, bool showControlsModal, bool mobileMode = false) const;
     UIAction drawControlsModal(Vector2 mousePos, bool mouseClicked) const;
     UIAction drawPauseMenu(Vector2 mousePos, bool mouseClicked, int currentLevel) const;
     UIAction drawLevelComplete(

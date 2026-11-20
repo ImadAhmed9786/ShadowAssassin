@@ -77,7 +77,8 @@ void UIManager::drawHUD(
     int remainingGuards,
     int totalGuards,
     int eliminations,
-    int fps
+    int fps,
+    bool mobileMode
 ) const {
     if (!IsWindowReady()) return;
 
@@ -130,8 +131,58 @@ void UIManager::drawHUD(
     DrawText(TextFormat("%d Kills", eliminations), 560, dockY + 28, 16, Color{ 255, 120, 120, 255 });
 
     // Section E: Concise Controls Hint
-    DrawText("CONTROLS: [WASD] Move  [SPACE] Assassinate  [P/ESC] Pause  [R] Reset  [F11] Fullscreen",
-             640, dockY + 28, 11, Color{ 140, 155, 175, 255 });
+    if (mobileMode) {
+        DrawText("MODE: MOBILE TOUCH [T: Toggle PC]  |  Drag Joystick to Move  |  Tap STRIKE to Attack",
+                 560, dockY + 28, 11, Color{ 0, 220, 255, 255 });
+    } else {
+        DrawText("CONTROLS: [WASD] Move  [SPACE] Strike  [T] Mobile Mode  [P/ESC] Pause  [F11] Fullscreen",
+                 560, dockY + 28, 11, Color{ 140, 155, 175, 255 });
+    }
+}
+
+void UIManager::drawMobileControls(
+    Vector2 joystickCenter,
+    Vector2 knobPos,
+    bool joystickActive,
+    Vector2 strikeBtnCenter,
+    float strikeBtnRadius,
+    bool canStrike,
+    bool strikePressed
+) const {
+    if (!IsWindowReady()) return;
+
+    // 1. Virtual Joystick (Bottom Left)
+    DrawCircleV(joystickCenter, 65.0f, Color{ 15, 25, 40, 160 });
+    DrawCircleLines(static_cast<int>(joystickCenter.x), static_cast<int>(joystickCenter.y), 65.0f, Color{ 0, 180, 220, joystickActive ? (unsigned char)230 : (unsigned char)130 });
+    DrawLine(static_cast<int>(joystickCenter.x - 35), static_cast<int>(joystickCenter.y), static_cast<int>(joystickCenter.x + 35), static_cast<int>(joystickCenter.y), Color{ 0, 180, 220, 70 });
+    DrawLine(static_cast<int>(joystickCenter.x), static_cast<int>(joystickCenter.y - 35), static_cast<int>(joystickCenter.x), static_cast<int>(joystickCenter.y + 35), Color{ 0, 180, 220, 70 });
+    DrawText("MOVE", static_cast<int>(joystickCenter.x - 16), static_cast<int>(joystickCenter.y + 70), 11, Color{ 0, 180, 220, 180 });
+
+    // Inner Knob
+    Color knobColor = joystickActive ? Color{ 0, 220, 255, 240 } : Color{ 50, 120, 180, 190 };
+    DrawCircleV(knobPos, 28.0f, knobColor);
+    DrawCircleLines(static_cast<int>(knobPos.x), static_cast<int>(knobPos.y), 28.0f, WHITE);
+    DrawCircle(static_cast<int>(knobPos.x), static_cast<int>(knobPos.y), 6.0f, Color{ 255, 255, 255, 190 });
+
+    // 2. Action / Attack Button ("STRIKE") (Bottom Right)
+    Color strikeBase = canStrike ? (strikePressed ? Color{ 255, 120, 0, 250 } : Color{ 230, 35, 35, 230 })
+                                 : Color{ 30, 40, 55, 180 };
+    Color strikeBorder = canStrike ? Color{ 255, 220, 50, 255 } : Color{ 80, 95, 120, 200 };
+
+    if (canStrike) {
+        DrawCircleV(strikeBtnCenter, strikeBtnRadius + 6.0f, Color{ 255, 50, 50, 90 });
+    }
+
+    DrawCircleV(strikeBtnCenter, strikeBtnRadius, strikeBase);
+    DrawCircleLines(static_cast<int>(strikeBtnCenter.x), static_cast<int>(strikeBtnCenter.y), strikeBtnRadius, strikeBorder);
+    if (canStrike) {
+        DrawCircleLines(static_cast<int>(strikeBtnCenter.x), static_cast<int>(strikeBtnCenter.y), strikeBtnRadius + 2.0f, WHITE);
+    }
+
+    const char* strikeText = canStrike ? "KILL!" : "STRIKE";
+    int textW = MeasureText(strikeText, canStrike ? 16 : 14);
+    DrawText(strikeText, static_cast<int>(strikeBtnCenter.x - textW / 2), static_cast<int>(strikeBtnCenter.y - 7), canStrike ? 16 : 14, WHITE);
+    DrawText("ATTACK", static_cast<int>(strikeBtnCenter.x - 22), static_cast<int>(strikeBtnCenter.y + strikeBtnRadius + 8.0f), 10, canStrike ? COLOR_ACCENT_RED : Color{ 140, 155, 175, 180 });
 }
 
 bool UIManager::drawButton(
@@ -160,7 +211,7 @@ bool UIManager::drawButton(
     return isHovered && mouseClicked;
 }
 
-UIAction UIManager::drawMainMenu(Vector2 mousePos, bool mouseClicked, bool showControlsModal) const {
+UIAction UIManager::drawMainMenu(Vector2 mousePos, bool mouseClicked, bool showControlsModal, bool mobileMode) const {
     if (IsWindowReady()) {
         ClearBackground(COLOR_BG_DARK);
 
@@ -181,40 +232,51 @@ UIAction UIManager::drawMainMenu(Vector2 mousePos, bool mouseClicked, bool showC
         // Title Block
         const char* title = "SHADOW ASSASSIN";
         int titleW = MeasureText(title, 52);
-        DrawText(title, (m_screenWidth - titleW) / 2, 140, 52, RAYWHITE);
+        DrawText(title, (m_screenWidth - titleW) / 2, 130, 52, RAYWHITE);
 
         const char* subtitle = "TACTICAL TOP-DOWN 2D STEALTH INFILTRATION";
         int subW = MeasureText(subtitle, 16);
-        DrawText(subtitle, (m_screenWidth - subW) / 2, 205, 16, COLOR_ACCENT_CYAN);
+        DrawText(subtitle, (m_screenWidth - subW) / 2, 195, 16, COLOR_ACCENT_CYAN);
 
-        DrawLine((m_screenWidth - 420) / 2, 235, (m_screenWidth + 420) / 2, 235, Color{ 0, 180, 220, 160 });
+        DrawLine((m_screenWidth - 420) / 2, 222, (m_screenWidth + 420) / 2, 222, Color{ 0, 180, 220, 160 });
 
         // Footer Info
         const char* footer = "C++17 OOP Academic Project  |  raylib 5.5  |  Hunter Assassin Inspired";
         int footerW = MeasureText(footer, 13);
-        DrawText(footer, (m_screenWidth - footerW) / 2, m_screenHeight - 75, 13, Color{ 110, 125, 145, 255 });
+        DrawText(footer, (m_screenWidth - footerW) / 2, m_screenHeight - 60, 13, Color{ 110, 125, 145, 255 });
     }
 
     // Buttons
-    int btnW = 280;
-    int btnH = 50;
+    int btnW = 320;
+    int btnH = 46;
     int btnX = (m_screenWidth - btnW) / 2;
 
-    if (drawButton(Rectangle{ static_cast<float>(btnX), 280.0f, static_cast<float>(btnW), static_cast<float>(btnH) },
+    if (drawButton(Rectangle{ static_cast<float>(btnX), 255.0f, static_cast<float>(btnW), static_cast<float>(btnH) },
                    "START CAMPAIGN", 18,
                    Color{ 20, 50, 85, 255 }, Color{ 30, 90, 160, 255 },
                    RAYWHITE, mousePos, mouseClicked)) {
         return UIAction::START_GAME;
     }
 
-    if (drawButton(Rectangle{ static_cast<float>(btnX), 350.0f, static_cast<float>(btnW), static_cast<float>(btnH) },
-                   "HOW TO PLAY / INTEL", 18,
+    if (drawButton(Rectangle{ static_cast<float>(btnX), 315.0f, static_cast<float>(btnW), static_cast<float>(btnH) },
+                   "HOW TO PLAY / INTEL", 17,
                    Color{ 25, 32, 45, 255 }, Color{ 45, 60, 85, 255 },
                    RAYWHITE, mousePos, mouseClicked)) {
         return UIAction::SHOW_CONTROLS;
     }
 
-    if (drawButton(Rectangle{ static_cast<float>(btnX), 420.0f, static_cast<float>(btnW), static_cast<float>(btnH) },
+    const char* deviceLabel = mobileMode ? "DEVICE: MOBILE (TOUCH JOYSTICK)" : "DEVICE: PC (KEYBOARD WASD)";
+    Color deviceCol = mobileMode ? Color{ 0, 75, 65, 255 } : Color{ 30, 38, 52, 255 };
+    Color deviceHover = mobileMode ? Color{ 0, 130, 100, 255 } : Color{ 50, 65, 90, 255 };
+    Color deviceTextCol = mobileMode ? Color{ 0, 240, 210, 255 } : RAYWHITE;
+    if (drawButton(Rectangle{ static_cast<float>(btnX), 375.0f, static_cast<float>(btnW), static_cast<float>(btnH) },
+                   deviceLabel, 14,
+                   deviceCol, deviceHover,
+                   deviceTextCol, mousePos, mouseClicked)) {
+        return UIAction::TOGGLE_DEVICE_MODE;
+    }
+
+    if (drawButton(Rectangle{ static_cast<float>(btnX), 435.0f, static_cast<float>(btnW), static_cast<float>(btnH) },
                    "EXIT GAME", 18,
                    Color{ 50, 22, 28, 255 }, Color{ 95, 30, 42, 255 },
                    RAYWHITE, mousePos, mouseClicked)) {

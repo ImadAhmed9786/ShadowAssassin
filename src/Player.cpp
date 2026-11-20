@@ -37,7 +37,7 @@ Player::Player(float x, float y, float radius, int maxHealth, float speed)
       m_animTimer(0.0f) {
 }
 
-void Player::handleInput() {
+void Player::handleInput(Vector2 virtualJoystickDir) {
     if (!isAlive()) {
         m_velocity = Vector2{ 0.0f, 0.0f };
         return;
@@ -51,6 +51,12 @@ void Player::handleInput() {
     if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))  dy += 1.0f;
     if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))  dx -= 1.0f;
     if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) dx += 1.0f;
+
+    // Combine with mobile virtual touch joystick if active
+    if (std::abs(virtualJoystickDir.x) > 0.05f || std::abs(virtualJoystickDir.y) > 0.05f) {
+        dx += virtualJoystickDir.x;
+        dy += virtualJoystickDir.y;
+    }
 
     // Diagonal Movement Normalization (prevents 1.414x faster diagonal speed)
     float lengthSq = dx * dx + dy * dy;

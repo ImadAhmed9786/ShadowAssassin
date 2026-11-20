@@ -86,6 +86,10 @@ public:
     bool isFullscreen() const { return m_isFullscreen; }
     void toggleFullscreen();
 
+    bool isMobileMode() const { return m_mobileMode; }
+    void toggleMobileMode();
+    Vector2 getVirtualMousePos() const;
+
 private:
     int m_screenWidth;
     int m_screenHeight;
@@ -96,6 +100,15 @@ private:
     bool m_debugMode;
     bool m_isFullscreen;
     RenderTexture2D m_renderTarget;
+
+    // Mobile Virtual Touch Controls
+    bool m_mobileMode;
+    Vector2 m_joystickCenter;
+    Vector2 m_joystickKnob;
+    bool m_joystickActive;
+    Vector2 m_strikeBtnCenter;
+    float m_strikeBtnRadius;
+    bool m_strikePressed;
 
     // Checkpoint values for level restarts
     int m_checkpointCoins;

@@ -24,7 +24,7 @@ public:
     void draw() const override;
 
     // Movement & Input
-    void handleInput();
+    void handleInput(Vector2 virtualJoystickDir = Vector2{ 0.0f, 0.0f });
     void setVelocity(Vector2 velocity) { m_velocity = velocity; }
     Vector2 getVelocity() const { return m_velocity; }
     float getSpeed() const { return m_speed; }
