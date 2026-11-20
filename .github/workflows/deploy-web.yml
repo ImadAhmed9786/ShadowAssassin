@@ -1,0 +1,68 @@
+name: Deploy Shadow Assassin to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Emscripten SDK
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+
+      - name: Verify Emscripten
+        run: emcc --version
+
+      - name: Configure Web Build
+        run: |
+          emcmake cmake -B build-web \
+            -DPLATFORM=Web \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTS=OFF
+
+      - name: Compile WebAssembly Game
+        run: cmake --build build-web --verbose
+
+      - name: Prepare Web Assets for GitHub Pages
+        run: |
+          mkdir -p public
+          if [ -f build-web/ShadowAssassin.html ]; then
+            cp build-web/ShadowAssassin.html public/index.html
+          else
+            find build-web -name "*.html" -exec cp {} public/index.html \;
+          fi
+          find build-web -name "*.js" -exec cp {} public/ \; || true
+          find build-web -name "*.wasm" -exec cp {} public/ \; || true
+          find build-web -name "*.data" -exec cp {} public/ \; || true
+          ls -la public/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'public'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
