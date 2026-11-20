@@ -25,7 +25,7 @@ GameManager::GameManager(int width, int height, const std::string& title)
       m_currentState(GameState::MENU),
       m_showControlsModal(false),
       m_debugMode(false),
-      m_isFullscreen(true),
+      m_isFullscreen(false),
       m_renderTarget{},
       m_mobileMode(false),
       m_joystickCenter{ 130.0f, 620.0f },
@@ -162,9 +162,8 @@ bool GameManager::init() {
         return false;
     }
 
-    // Initialize in borderless fullscreen mode by default
-    ToggleBorderlessWindowed();
-    m_isFullscreen = IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
+    // Initialize window in stable centered mode (F11 toggles Fullscreen anytime)
+    m_isFullscreen = false;
 
     // Initialize virtual resolution render target (1024x768)
     m_renderTarget = LoadRenderTexture(m_screenWidth, m_screenHeight);
@@ -179,7 +178,7 @@ bool GameManager::init() {
     m_currentState = GameState::MENU;
 
     m_isRunning = true;
-    std::cout << "[GameManager] Initialized in Fullscreen Mode (Press F11 or Alt+Enter to toggle windowed)." << std::endl;
+    std::cout << "[GameManager] Engine initialized. Press F11 or Alt+Enter to toggle Fullscreen." << std::endl;
     return true;
 }
 
@@ -497,7 +496,7 @@ void GameManager::draw() {
                 } else if (action == UIAction::HIDE_CONTROLS) {
                     m_showControlsModal = false;
                 } else if (action == UIAction::TOGGLE_DEVICE_MODE) {
-                    toggleMobileMode();
+                    toggleFullscreen();
                 } else if (action == UIAction::EXIT_GAME) {
                     m_isRunning = false;
                 }
@@ -525,26 +524,6 @@ void GameManager::draw() {
                 m_uiManager->drawNotifications();
             }
 
-            // Draw Mobile Virtual Touch Controls if mobile mode is active
-            if (m_mobileMode && m_uiManager && m_currentLevel) {
-                bool anyVulnerable = false;
-                for (const auto& guard : m_currentLevel->getGuards()) {
-                    if (guard->isAlive() && guard->isVulnerable()) {
-                        anyVulnerable = true;
-                        break;
-                    }
-                }
-                m_uiManager->drawMobileControls(
-                    m_joystickCenter,
-                    m_joystickKnob,
-                    m_joystickActive,
-                    m_strikeBtnCenter,
-                    m_strikeBtnRadius,
-                    anyVulnerable,
-                    m_strikePressed
-                );
-            }
-
             // Draw In-Game HUD
             if (m_uiManager && m_currentLevel && m_player) {
                 m_uiManager->drawHUD(
@@ -557,8 +536,7 @@ void GameManager::draw() {
                     m_currentLevel->getRemainingGuardsCount(),
                     m_currentLevel->getTotalGuardsCount(),
                     m_player->getEliminations(),
-                    GetFPS(),
-                    m_mobileMode
+                    GetFPS()
                 );
             }
             break;

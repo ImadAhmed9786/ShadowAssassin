@@ -80,6 +80,7 @@ void UIManager::drawHUD(
     int fps,
     bool mobileMode
 ) const {
+    (void)mobileMode;
     if (!IsWindowReady()) return;
 
     // -----------------------------------------------------------------
@@ -131,13 +132,8 @@ void UIManager::drawHUD(
     DrawText(TextFormat("%d Kills", eliminations), 560, dockY + 28, 16, Color{ 255, 120, 120, 255 });
 
     // Section E: Concise Controls Hint
-    if (mobileMode) {
-        DrawText("MODE: MOBILE TOUCH [T: Toggle PC]  |  Drag Joystick to Move  |  Tap STRIKE to Attack",
-                 560, dockY + 28, 11, Color{ 0, 220, 255, 255 });
-    } else {
-        DrawText("CONTROLS: [WASD] Move  [SPACE] Strike  [T] Mobile Mode  [P/ESC] Pause  [F11] Fullscreen",
-                 560, dockY + 28, 11, Color{ 140, 155, 175, 255 });
-    }
+    DrawText("CONTROLS: [WASD] Move  [SPACE] Assassinate  [P/ESC] Pause  [R] Reset  [F11] Fullscreen",
+             570, dockY + 28, 11, Color{ 140, 155, 175, 255 });
 }
 
 void UIManager::drawMobileControls(
@@ -212,6 +208,7 @@ bool UIManager::drawButton(
 }
 
 UIAction UIManager::drawMainMenu(Vector2 mousePos, bool mouseClicked, bool showControlsModal, bool mobileMode) const {
+    (void)mobileMode;
     if (IsWindowReady()) {
         ClearBackground(COLOR_BG_DARK);
 
@@ -265,14 +262,10 @@ UIAction UIManager::drawMainMenu(Vector2 mousePos, bool mouseClicked, bool showC
         return UIAction::SHOW_CONTROLS;
     }
 
-    const char* deviceLabel = mobileMode ? "DEVICE: MOBILE (TOUCH JOYSTICK)" : "DEVICE: PC (KEYBOARD WASD)";
-    Color deviceCol = mobileMode ? Color{ 0, 75, 65, 255 } : Color{ 30, 38, 52, 255 };
-    Color deviceHover = mobileMode ? Color{ 0, 130, 100, 255 } : Color{ 50, 65, 90, 255 };
-    Color deviceTextCol = mobileMode ? Color{ 0, 240, 210, 255 } : RAYWHITE;
     if (drawButton(Rectangle{ static_cast<float>(btnX), 375.0f, static_cast<float>(btnW), static_cast<float>(btnH) },
-                   deviceLabel, 14,
-                   deviceCol, deviceHover,
-                   deviceTextCol, mousePos, mouseClicked)) {
+                   "TOGGLE FULLSCREEN [F11]", 16,
+                   Color{ 30, 40, 60, 255 }, Color{ 45, 65, 100, 255 },
+                   COLOR_ACCENT_CYAN, mousePos, mouseClicked)) {
         return UIAction::TOGGLE_DEVICE_MODE;
     }
 
